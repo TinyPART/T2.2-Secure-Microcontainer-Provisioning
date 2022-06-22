@@ -1,0 +1,72 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Lachaise Assignment
+% LaTeX Template
+% Version 1.0 (26/6/2018)
+%
+% This template originates from:
+% http://www.LaTeXTemplates.com
+%
+% Authors:
+% Marion Lachaise & François Févotte
+% Vel (vel@LaTeXTemplates.com)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+% Changes made by TinyPART Consortium are marked by a comment.
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%   Change by TinyPART : elements related to structure were move to structure.tex file. 
+%----------------------------------------------------------------------------------------
+
+\documentclass{article}
+
+\input{structure.tex} % Include the file specifying the document structure and custom commands
+\graphicspath{
+	{"sections/image/"}
+	{"./sections/image"}
+}
+
+
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+	
+	%\maketitle % Print the title
+	\input{titlepage/titlepage.tex}
+	\clearpage
+    \input{history/history.tex}
+	\clearpage
+	\tableofcontents
+	\clearpage
+	\subfile{sections/introduction.tex}
+	\clearpage
+	\subfile{sections/section1.tex}
+	\clearpage
+	\subfile{sections/section2.tex}
+	\clearpage
+	\subfile{sections/section3.tex}
+
+	% ---- Bibliography ----
+	\clearpage
+	\bibliographystyle{ieeetr}
+	\bibliography{./Biblio/biblio}
+
+	% ---- Glossary ----
+	\clearpage
+	%\glsaddallunused
+	\printglossaries
+
+
+	
+	% ---- Appendixes ----
+	\clearpage
+	\appendix
+	\subfile{annexes/annex1.tex}
+	\clearpage
+	\subfile{annexes/annex2.tex}
+	
+\end{document}
+
