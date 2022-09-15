@@ -17,11 +17,11 @@
 #include "suit/transport/coap.h"
 #include "suit/storage.h"
 #include "suit/storage/ram.h"
+#include "fmt.h"
 
 #define GCOAP_BPF_APP_SIZE 2048
 static uint8_t _stack[512] = { 0 };
 
-static char location[] = ".ram.0";
 
 static ssize_t _riot_board_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, void *context)
 {
@@ -39,16 +39,20 @@ static bpf_t _bpf = {
 
 static ssize_t _bpf_handler(coap_pkt_t *pdu, uint8_t *buf, size_t len, void *ctx)
 {
-    (void)ctx;
+    char *location = ctx;
+    char reply[12] = { 0 };
 
     suit_storage_t *storage = suit_storage_find_by_id(location);
 
     assert(storage);
 
-    suit_storage_ram_t *ram_storage = container_of(storage, suit_storage_ram_t, storage);
+    suit_storage_set_active_location(storage, location);
+    const uint8_t *mem_region;
+    size_t length;
+    suit_storage_read_ptr(storage, &mem_region, &length);
 
-    _bpf.application = ram_storage->regions[0].mem;
-    _bpf.application_len = ram_storage->regions[0].occupied;
+    _bpf.application = mem_region;
+    _bpf.application_len = length;
 
     bpf_mem_region_t mem_pdu;
     bpf_mem_region_t mem_pkt;
@@ -66,14 +70,18 @@ static ssize_t _bpf_handler(coap_pkt_t *pdu, uint8_t *buf, size_t len, void *ctx
     bpf_setup(&_bpf);
     int64_t result = -1;
     int res = bpf_execute(&_bpf, &bpf_ctx, sizeof(bpf_ctx), &result);
+
+    size_t reply_len = fmt_s32_dfp(reply, result, -2);
+
     printf("Execution done res=%i, result=%i\n", res, (int)result);
-    return coap_reply_simple(pdu, COAP_CODE_204, buf, len, 0, NULL, 0);
+    return coap_reply_simple(pdu, COAP_CODE_204, buf, len, 0, (uint8_t*)reply, reply_len);
 }
 
 /* must be sorted by path (ASCII order) */
 const coap_resource_t coap_resources[] = {
     COAP_WELL_KNOWN_CORE_DEFAULT_HANDLER,
-    { "/bpf/exec", COAP_POST, _bpf_handler, NULL },
+    { "/bpf/exec/0", COAP_POST, _bpf_handler, ".ram.0" },
+    { "/bpf/exec/1", COAP_POST, _bpf_handler, ".ram.1" },
     { "/riot/board", COAP_GET, _riot_board_handler, NULL },
 
     /* this line adds the whole "/suit"-subtree */

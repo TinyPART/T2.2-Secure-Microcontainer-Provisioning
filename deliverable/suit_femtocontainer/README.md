@@ -77,19 +77,20 @@ $ aiocoap-fileserver coaproot
 
 3. Build and start the native instance:
 ```
-$ BOARD=native make -C examples/suit_update all term
+$ make -C suit_femtocontainer all term
 ```
    and add an address from the same range to the interface in RIOT
 ```console
 > ifconfig 5 add 2001:db8::2/64
 ```
 
-4. Generate a payload and a signed manifest for the payload:
+4. Compile the bpf application and a signed manifest for the application:
 ```console
-$ echo "AABBCCDD" > coaproot/payload.bin
-$ dist/tools/suit/gen_manifest.py --urlroot coap://[2001:db8::1]/ --seqnr 1 -o suit.tmp coaproot/payload.bin:0:ram:0
-$ dist/tools/suit/suit-manifest-generator/bin/suit-tool create -f suit -i suit.tmp -o coaproot/suit_manifest
-$ dist/tools/suit/suit-manifest-generator/bin/suit-tool sign -k keys/default.pem -m coaproot/suit_manifest -o coaproot/suit_manifest.signed
+$ make -C suit_femtocontainer/bpf
+$ cp suit_femtocontainer/bpf/temp_sens.bin coaproot
+$ RIOT/dist/tools/suit/gen_manifest.py --urlroot coap://[2001:db8::1]/ --seqnr 1 -o suit.tmp coaproot/temp_sens.bin:0:ram:0
+$ RIOT/dist/tools/suit/suit-manifest-generator/bin/suit-tool create -f suit -i suit.tmp -o coaproot/suit_manifest
+$ RIOT/dist/tools/suit/suit-manifest-generator/bin/suit-tool sign -k RIOT/keys/default.pem -m coaproot/suit_manifest -o coaproot/suit_manifest.signed
 ```
 
 5. Pull the manifest from the native instance:
@@ -101,7 +102,13 @@ $ dist/tools/suit/suit-manifest-generator/bin/suit-tool sign -k keys/default.pem
 
 ```Console
 > storage_content .ram.0 0 64
-41414242434344440A
+7242504600000000...
+```
+
+7. Execute the bpf application on the instance:
+
+```Console
+$ aiocoap-client -m POST coap://[2001:db8::2]/bpf/exec/0
 ```
 
 ## Introduction
@@ -109,8 +116,9 @@ $ dist/tools/suit/suit-manifest-generator/bin/suit-tool sign -k keys/default.pem
 
 When building the example application for the native target, the firmware update
 capability is removed. Instead two in-memory slots are created that can be
-updated with new payloads. These act as a demonstrator for the SUIT
-capabilities.
+updated with new payloads. Both of these in-memory slots are hooked up to the
+Femto-Container CoAP endpoints. These act as a demonstrator for the SUIT
+capabilities together with Femto-Containers.
 
 The steps described here show how to use SUIT manifests to deliver content
 updates to a RIOT instance. The full workflow is described, including the setup
@@ -130,8 +138,7 @@ update the storage location with the content.
 
 While the above examples use make targets to create and submit the manifest,
 this workflow aims to provide a better view of the SUIT manifest and signature
-workflow. Because of this the steps below use the low level scripts to manually
-creates a payload and manifest and sign it.
+workflow.
 
 ### Setting up networking
 [setting-up-networking]: #setting-up-networking
@@ -141,12 +148,8 @@ coap server and the instance is required.
 
 First a bridge with two tap devices is created:
 
-echo "AABBCCDD" > coaproot/payload.bin
-dist/tools/suit/gen_manifest.py --urlroot coap://[2001:db8::1]/ --seqnr 1 -o suit.tmp coaproot/payload.bin:0:ram:0
-dist/tools/suit/suit-manifest-generator/bin/suit-tool create -f suit -i suit.tmp -o coaproot/suit_manifest
-dist/tools/suit/suit-manifest-generator/bin/suit-tool sign -k keys/default.pem -m coaproot/suit_manifest -o coaproot/suit_manifest.signed
 ```console
-$ sudo dist/tools/tapsetup/tapsetup -c
+$ sudo RIOT/dist/tools/tapsetup/tapsetup -c
 ```
 
 This creates a bridge called `tapbr0` and a `tap0` and `tap1`. These last two
@@ -181,13 +184,13 @@ Before the natice instance can be started, it must be compiled first.
 Compilation can be started from the root of your RIOT directory with:
 
 ```
-$ BOARD=native make -C examples/suit_update
+$ make -C suit_femtocontainer
 ```
 
 Then start the example with:
 
 ```console
-$ BOARD=native make -C examples/suit_update term
+$ make -C suit_femtocontainer term
 ```
 
 This starts an instance of the suit_update example as a process on your
@@ -222,7 +225,7 @@ RAM slot 1: ".ram.1"
 
 As shown above, two storage locations are available, `.ram.0` and `.ram.1`.
 While two slots are available, in this example only the content of the `.ram.0`
-slot will be updated.
+slot will be updated. The `.ram.1` slot can be updated with a different manifest.
 
 - The `storage_content` command can be used to display a hex dump command of one
   of the storage locations. It requires a location string, an offset and a
@@ -234,14 +237,15 @@ slot will be updated.
 ```
 As the storage location is empty on boot, nothing is printed.
 
-### Generating the payload and manifest
+### Generating the femto-container application and manifest
 [generating-the-payload-and-manifest]: #generating-the-payload-and-manifest
 
-To update the storage location we first need a payload. A trivial payload is
-used in this example:
+To update the storage location we first need the Femto-Container payload
+application:
 
 ```console
-$ echo "AABBCCDD" > coaproot/payload.bin
+$ make -C suit_femtocontainer/bpf
+$ cp suit_femtocontainer/bpf/temp_sens.bin
 ```
 
 Make sure to store it in the directory selected for the CoAP file server.
@@ -251,7 +255,7 @@ acts as a template for the real SUIT manifest. Within RIOT, the script
 `dist/tools/suit/gen_manifest.py` is used.
 
 ```console
-$ dist/tools/suit/gen_manifest.py --urlroot coap://[2001:db8::1]/ --seqnr 1 -o suit.tmp coaproot/payload.bin:0:ram:0
+$ dist/tools/suit/gen_manifest.py --urlroot coap://[2001:db8::1]/ --seqnr 1 -o suit.tmp coaproot/temp_sens.bin:0:ram:0
 ```
 
 This generates a suit manifest template with the sequence number set to `1`, a
@@ -281,8 +285,8 @@ The content of this template file should look like this:
             ],
             "vendor-id": "547d0d746d3a5a9296624881afd9407b",
             "class-id": "bcc90984fe7d562bb4c9a24f26a3a9cd",
-            "file": "coaproot/suit_test.bin",
-            "uri": "coap://[fe80::4049:bfff:fe60:db09]/suit_test.bin",
+            "file": "coaproot/temp_sens.bin",
+            "uri": "coap://[fe80::4049:bfff:fe60:db09]/temp_sens.bin",
             "bootable": false
         }
     ]
@@ -381,7 +385,7 @@ same payload as suggested above was used, it should look like this:
 
 ```Console
 > storage_content .ram.0 0 64
-41414242434344440A
+72425046000000000000...
 ```
 
 The process can be done multiple times with both slot `.ram.0` and `.ram.1` and
@@ -392,8 +396,8 @@ monotonically number and must be increased after every update.
 
 The Femto-Containers executable is stored in slot `.ram.0` for simplicity in
 this example. It can be triggered for execution by sending a POST request over
-CoAP to the `/bpf/exec` endpoint on the instance running.
+CoAP to the `/bpf/exec/0` endpoint on the instance running.
 
 ```Console
-$ aiocoap-client -m POST coap://[2001:db8::2]/bpf/exec
+$ aiocoap-client -m POST coap://[2001:db8::2]/bpf/exec/0
 ```
