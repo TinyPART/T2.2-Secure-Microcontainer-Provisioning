@@ -3,8 +3,25 @@
 \begin{document}
 	
 
- \section{Microcontainer Update Manager Demo}
-\task{Emmanuel}{All}{ TO DO. Link to repo + README.}
+\section{Microcontainer Update Manager Demo}
 
+The microcontainer update demo shows the integration between the secure update
+manager and the microcontainer runtime environment.
+The secure update manager leverages SUIT as described above to deliver the
+application payload.
+The microcontainer runtime uses Femto-Containers to run the applications.
+
+The demonstrator uses two in-memory slots that can be updated with new payloads.
+Both of these in-memory slots are hooked up to the Femto-Container CoAP
+endpoints. These act as a demonstrator for the SUIT capabilities together with
+Femto-Containers. After an application is loaded in either of the available
+slots, the CoAP endpoint can be used to trigger the Femto-Container application
+and the CoAP response will contain the resulting return value from the
+Femto-Container execution.
+
+The in-memory slots are updated using the SUIT workflow in RIOT, as described in
+the \texttt{README.md} file present with the deliverable.
+
+%\task{Emmanuel}{All}{ TO DO. Link to repo + README.}
 	
 \end{document}
